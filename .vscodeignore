@@ -1,0 +1,10 @@
+src/**
+media/*.map
+out/**/*.map
+tsconfig.json
+README.md
+.vscode/**
+.gitignore
+.dev/**
+.env
+.env.local

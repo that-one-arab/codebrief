@@ -1,0 +1,55 @@
+:root {
+  --bg-primary: var(--vscode-editor-background);
+  --bg-secondary: var(--vscode-sideBar-background);
+  --bg-tertiary: var(--vscode-list-hoverBackground);
+  --fg-primary: var(--vscode-editor-foreground);
+  --fg-secondary: var(--vscode-descriptionForeground);
+  --border-color: var(--vscode-panel-border);
+  --accent-color: var(--vscode-focusBorder);
+  /* Status colors - neutral fallbacks that work in light/dark themes */
+  --success-color: var(--vscode-testing-iconPassed, #228b22);
+  --warning-color: var(--vscode-editorWarning-foreground, #b89500);
+  --error-color: var(--vscode-editorError-foreground, #cd3131);
+  /* Diff colors - use VS Code diff editor colors with neutral fallbacks */
+  --add-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(34, 139, 34, 0.2));
+  --add-fg: var(--vscode-diffEditor-insertedTextForeground, var(--vscode-editor-foreground));
+  --del-bg: var(--vscode-diffEditor-removedLineBackground, rgba(205, 49, 49, 0.2));
+  --del-fg: var(--vscode-diffEditor-removedTextForeground, var(--vscode-editor-foreground));
+  --context-fg: var(--vscode-editor-foreground);
+  --radius: 6px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --bottom-bar-height: 56px;
+  --header-height: 60px;
+  --skeleton-bg: var(--vscode-scrollbarSlider-background);
+  --skeleton-shine: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--fg-primary);
+  background: var(--bg-primary);
+  line-height: 1.5;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+

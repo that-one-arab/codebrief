@@ -1,0 +1,320 @@
+{
+  "name": "codebrief",
+  "displayName": "Codebrief",
+  "description": "Code review the smart way with AI",
+  "version": "0.0.3",
+  "license": "MIT",
+  "preview": false,
+  "publisher": "MoNazim",
+  "icon": "images/logo.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/that-one-arab/codebrief"
+  },
+  "keywords": [
+    "ai",
+    "code",
+    "review",
+    "git",
+    "vscode",
+    "claude",
+    "claudecode",
+    "opencode",
+    "codex"
+  ],
+  "author": {
+    "name": "Mo Nazim",
+    "email": "muhammed.aldulaimi98@gmail.com",
+    "url": "https://github.com/that-one-arab"
+  },
+  "categories": [
+    "Machine Learning",
+    "SCM Providers"
+  ],
+  "activationEvents": [
+    "onUri"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile && npm run copy-wasm",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "copy-wasm": "cp node_modules/vscode-oniguruma/release/onig.wasm out/onig.wasm",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publish:patch": "bash scripts/publish.sh patch",
+    "publish:minor": "bash scripts/publish.sh minor",
+    "publish:major": "bash scripts/publish.sh major"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiReviewIntent",
+          "title": "Codebrief",
+          "icon": "images/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiReviewIntent": [
+        {
+          "id": "aiIntentReview",
+          "name": "Groups",
+          "when": "true"
+        },
+        {
+          "id": "aiStagedChanges",
+          "name": "Staged Changes",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "aiIntentReview",
+        "contents": "Generate a review to analyze your changes.\n[Generate Review](command:codebrief.generateReview)",
+        "when": "aiCodeReview:noReviewGenerated"
+      }
+    ],
+    "commands": [
+      {
+        "command": "codebrief.generateReview",
+        "title": "Generate Review",
+        "category": "Codebrief"
+      },
+      {
+        "command": "codebrief.openLogDirectory",
+        "title": "Open Log Directory",
+        "category": "Codebrief"
+      },
+      {
+        "command": "codebrief.resetConfig",
+        "title": "Reset Configuration",
+        "category": "Codebrief"
+      },
+      {
+        "command": "aiIntentReview.changeProvider",
+        "title": "Change AI Provider",
+        "category": "Codebrief"
+      },
+      {
+        "command": "aiIntentReview.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aiIntentReview.acceptGroup",
+        "title": "Accept Group",
+        "icon": "$(check)"
+      },
+      {
+        "command": "aiIntentReview.rejectGroup",
+        "title": "Reject Group",
+        "icon": "$(x)"
+      },
+      {
+        "command": "aiIntentReview.openFile",
+        "title": "Open File in Editor"
+      },
+      {
+        "command": "aiIntentReview.openFileInWebview",
+        "title": "Open File in Review"
+      },
+      {
+        "command": "aiIntentReview.openDetailedView",
+        "title": "Open Detailed View"
+      },
+      {
+        "command": "aiIntentReview.showExplanation",
+        "title": "Show Explanation"
+      },
+      {
+        "command": "aiIntentReview.acceptAll",
+        "title": "Accept All",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "aiIntentReview.regenerate",
+        "title": "Generate Review",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "aiIntentReview.stageGroup",
+        "title": "Stage Group",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "aiIntentReview.unstageGroup",
+        "title": "Unstage Group",
+        "icon": "$(remove-close)"
+      },
+      {
+        "command": "aiIntentReview.commit",
+        "title": "Commit",
+        "icon": "$(check)"
+      },
+      {
+        "command": "aiIntentReview.stageAll",
+        "title": "Stage All",
+        "icon": "$(diff-added)"
+      },
+      {
+        "command": "aiIntentReview.unstageAll",
+        "title": "Unstage All",
+        "icon": "$(diff-removed)"
+      },
+      {
+        "command": "aiIntentReview.stageFile",
+        "title": "Stage File",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "aiIntentReview.unstageFile",
+        "title": "Unstage",
+        "icon": "$(remove)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "codebrief.generateReview",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "aiIntentReview.changeProvider",
+          "when": "workspaceFolderCount > 0"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "aiIntentReview.commit",
+          "group": "navigation@1",
+          "when": "view == aiStagedChanges"
+        },
+        {
+          "command": "aiIntentReview.unstageAll",
+          "group": "navigation@2",
+          "when": "view == aiStagedChanges"
+        },
+        {
+          "command": "aiIntentReview.stageAll",
+          "group": "navigation@1",
+          "when": "view == aiIntentReview && !aiCodeReview:allFilesStaged"
+        },
+        {
+          "command": "aiIntentReview.unstageAll",
+          "group": "navigation@1",
+          "when": "view == aiIntentReview && aiCodeReview:allFilesStaged"
+        },
+        {
+          "command": "aiIntentReview.regenerate",
+          "group": "navigation@2",
+          "when": "view == aiIntentReview"
+        },
+        {
+          "command": "aiIntentReview.refresh",
+          "group": "navigation@3",
+          "when": "view == aiIntentReview"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "codebrief.generateReview",
+          "group": "navigation@1",
+          "when": "resourceScheme == file"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "aiIntentReview.stageGroup",
+          "when": "view == aiIntentReview && (viewItem == groupNoneStaged || viewItem == groupPartialStaged)",
+          "group": "inline@1"
+        },
+        {
+          "command": "aiIntentReview.unstageGroup",
+          "when": "view == aiIntentReview && (viewItem == groupAllStaged || viewItem == groupPartialStaged)",
+          "group": "inline@1"
+        },
+        {
+          "command": "aiIntentReview.stageFile",
+          "when": "view == aiIntentReview && viewItem == unstagedFile",
+          "group": "inline@2"
+        },
+        {
+          "command": "aiIntentReview.unstageFile",
+          "when": "viewItem == stagedFile",
+          "group": "inline@2"
+        },
+        {
+          "command": "aiIntentReview.acceptGroup",
+          "when": "view == aiIntentReview && (viewItem == groupNoneStaged || viewItem == groupPartialStaged || viewItem == groupAllStaged)",
+          "group": "0@1"
+        },
+        {
+          "command": "aiIntentReview.rejectGroup",
+          "when": "view == aiIntentReview && (viewItem == groupNoneStaged || viewItem == groupPartialStaged || viewItem == groupAllStaged)",
+          "group": "0@2"
+        },
+        {
+          "command": "aiIntentReview.showExplanation",
+          "when": "view == aiIntentReview && (viewItem == groupNoneStaged || viewItem == groupPartialStaged || viewItem == groupAllStaged)",
+          "group": "1@1"
+        },
+        {
+          "command": "aiIntentReview.openDetailedView",
+          "when": "view == aiIntentReview && viewItem == fileChange",
+          "group": "2@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codebrief",
+      "properties": {
+        "aiCodeReview.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info",
+          "description": "Log level for Codebrief. Debug shows all messages including polling. Error shows only failures."
+        },
+        "aiCodeReview.enableFileLogging": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable writing logs to files for long-term diagnostics. Logs are stored in a platform-appropriate directory."
+        },
+        "aiCodeReview.logDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Custom directory for log files. If empty, uses platform default (~/.local/share/codebrief/logs on Linux/macOS, %APPDATA%/Codebrief/logs on Windows)."
+        },
+        "aiCodeReview.preserveAnalysisJson": {
+          "type": "boolean",
+          "default": true,
+          "description": "Preserve AI-written JSON files from each code review analysis. Files are organized by session and analysis timestamp."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/detect-port": "^1.3.5",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "detect-port": "^2.1.0",
+    "jsonrepair": "^3.13.2",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2",
+    "xdg-basedir": "^5.1.0"
+  }
+}

@@ -1,0 +1,102 @@
+.find-widget {
+  position: fixed;
+  top: var(--spacing-sm);
+  right: var(--spacing-lg);
+  z-index: 2001;
+  display: none;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 6px;
+  border: 1px solid var(--vscode-widget-border, var(--border-color));
+  background: var(--vscode-editorWidget-background, var(--bg-secondary));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  border-radius: var(--radius);
+}
+
+.find-widget.visible {
+  display: inline-flex;
+}
+
+.find-input {
+  width: 220px;
+  height: 28px;
+  padding: 0 var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  font-size: 12px;
+}
+
+.find-input:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 0;
+}
+
+.find-count {
+  min-width: 72px;
+  text-align: center;
+  color: var(--fg-secondary);
+  font-size: 11px;
+}
+
+.find-count.no-results {
+  color: var(--error-color);
+}
+
+.find-btn {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 var(--spacing-xs);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--fg-primary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.find-btn:hover {
+  background: var(--vscode-list-hoverBackground, var(--bg-secondary));
+}
+
+.find-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 0;
+}
+
+.find-case {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+
+.find-case.active {
+  background: var(--vscode-button-background, var(--accent-color));
+  color: var(--vscode-button-foreground, var(--fg-primary));
+  border-color: transparent;
+}
+
+.find-match {
+  background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.35));
+  border-radius: 2px;
+}
+
+.find-match.active {
+  background: var(--vscode-editor-findMatchBackground, rgba(255, 180, 0, 0.55));
+  outline: 1px solid var(--vscode-editor-findMatchBorder, var(--accent-color));
+}
+
+@media (max-width: 900px) {
+  .find-widget {
+    right: var(--spacing-sm);
+    left: var(--spacing-sm);
+  }
+
+  .find-input {
+    width: 100%;
+    min-width: 0;
+    flex: 1;
+  }
+}

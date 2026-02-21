@@ -1,0 +1,285 @@
+/* ========== LOADING STATES ========== */
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-xl);
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--skeleton-bg);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--fg-primary);
+}
+
+.loading-subtext {
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+/* ========== ERROR STATES ========== */
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 48px;
+}
+
+.error-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--error-color);
+}
+
+.error-message {
+  font-size: 14px;
+  color: var(--fg-secondary);
+  max-width: 400px;
+}
+
+.error-retry-btn {
+  margin-top: var(--spacing-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-xl);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--accent-color);
+  color: var(--vscode-button-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  height: 36px;
+  min-width: 100px;
+}
+
+.error-retry-btn:hover {
+  opacity: 0.9;
+}
+
+.error-retry-btn:active {
+  transform: translateY(1px);
+}
+
+/* ========== SKELETON LOADING ========== */
+
+.skeleton-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+}
+
+.skeleton-hunk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.skeleton-block {
+  background: var(--skeleton-bg);
+  border-radius: var(--radius);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-bubble {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+}
+
+.skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.skeleton-line {
+  height: 14px;
+  background: var(--skeleton-bg);
+  border-radius: 2px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-loading {
+  margin-top: var(--spacing-md);
+  font-size: 12px;
+  color: var(--fg-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.skeleton-loading::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--skeleton-bg);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* ========== GROUP CARD STATES ========== */
+
+.group-card.loading {
+  opacity: 0.7;
+}
+
+.group-card.loaded {
+  opacity: 1;
+  animation: fade-in 0.3s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius) var(--radius) 0 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.group-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.group-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, background-color 0.15s ease;
+}
+
+.collapse-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--fg-primary);
+}
+
+.collapse-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.collapse-btn.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.group-meta {
+  font-size: 12px;
+  color: var(--fg-secondary);
+  background: var(--bg-secondary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius);
+}
+
+/* File count only visible when group is collapsed */
+.file-count-collapsed {
+  display: none;
+}
+
+.group-card.collapsed .file-count-collapsed {
+  display: block;
+}
+
+/* Copy button for group header */
+.copy-group-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-group-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--fg-primary);
+  border-color: var(--border-color);
+}
+
+.copy-group-btn:active {
+  transform: scale(0.95);
+}
+
+.copy-group-btn.copied {
+  color: var(--success-color);
+  border-color: var(--success-color);
+  opacity: 1;
+  visibility: visible;
+}

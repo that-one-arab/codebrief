@@ -1,0 +1,196 @@
+/* ========== GROUPS CONTAINER ========== */
+
+.groups-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--spacing-lg);
+  padding-bottom: calc(var(--bottom-bar-height) + var(--spacing-xl));
+}
+
+/* ========== GROUP CARD ========== */
+
+.group-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  margin-bottom: var(--spacing-xl);
+  min-height: 400px;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+  scroll-margin-top: var(--spacing-lg);
+}
+
+.group-card.active {
+  opacity: 1;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+/* Collapsed state */
+.group-card.collapsed {
+  min-height: auto;
+}
+
+.group-card.collapsed .group-layout {
+  display: none;
+}
+
+.group-card.collapsed .group-header {
+  border-radius: var(--radius);
+  border-bottom: none;
+}
+
+/* ========== LAYOUT ========== */
+
+.group-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  position: relative;
+  animation: expand-in 0.2s ease;
+}
+
+@keyframes expand-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.layout-code-first .code-panel {
+  order: 1;
+}
+
+.layout-code-first .explanation-panel {
+  order: 2;
+}
+
+.layout-explanation-first .code-panel {
+  order: 2;
+}
+
+.layout-explanation-first .explanation-panel {
+  order: 1;
+}
+
+/* ========== CODE PANEL ========== */
+
+.code-panel {
+  width: 70%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* ========== EXPLANATION PANEL ========== */
+
+.explanation-panel {
+  width: 30%;
+  min-width: 260px;
+  max-width: 360px;
+  position: sticky;
+  top: calc(var(--header-height) + var(--spacing-lg));
+  align-self: flex-start;
+  max-height: calc(100vh - var(--header-height) - var(--bottom-bar-height) - var(--spacing-xl));
+  overflow-y: auto;
+}
+
+.explanation-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.explanation-panel::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.explanation-bubble {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Copy button for explanation */
+.copy-explanation-btn {
+  position: absolute;
+  bottom: var(--spacing-sm);
+  right: var(--spacing-sm);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--fg-secondary);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.explanation-bubble:hover .copy-explanation-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+.copy-explanation-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--fg-primary);
+  border-color: var(--accent-color);
+}
+
+.copy-explanation-btn:active {
+  transform: scale(0.95);
+}
+
+.copy-explanation-btn.copied {
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+/* ========== STREAMING TEXT ========== */
+
+.explanation-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-primary);
+  padding: var(--spacing-md);
+  min-height: 80px;
+}
+
+.explanation-text::after {
+  content: '▋';
+  display: inline-block;
+  margin-left: 2px;
+  animation: cursor-blink 1s infinite;
+  color: var(--accent-color);
+}
+
+.explanation-text.streaming-complete::after {
+  display: none;
+}
+
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: cursor-blink 1s infinite;
+  color: var(--accent-color);
+}

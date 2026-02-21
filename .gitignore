@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+
+# Packaged extension
+*.vsix
+
+# TypeScript
+*.tsbuildinfo
+vitest.config.js
+vitest.config.js.map
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+
+# Environment files
+.env
+.env.local
+
+
+.dev/
