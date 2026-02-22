@@ -6,6 +6,102 @@ import { DiffLine, DiffHunk, DiffFile } from '../types';
 
 export { DiffLine, DiffHunk, DiffFile };
 
+interface DiffPaths {
+  oldPath: string;
+  newPath: string;
+}
+
+function unquoteGitPath(input: string): string {
+  if (input.startsWith('"') && input.endsWith('"')) {
+    try {
+      return JSON.parse(input);
+    } catch {
+      const inner = input.slice(1, -1);
+      return inner
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\r/g, '\r')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+  }
+  if (input.includes('\\t') || input.includes('\\n') || input.includes('\\r') || input.includes('\\"')) {
+    return input
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\r/g, '\r')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+  return input;
+}
+
+function normalizeDiffPath(rawPath: string): string {
+  const unquoted = unquoteGitPath(rawPath);
+  if (unquoted === '/dev/null' || unquoted === 'dev/null') {
+    return '';
+  }
+  if (unquoted.startsWith('a/') || unquoted.startsWith('b/')) {
+    return unquoted.slice(2);
+  }
+  return unquoted;
+}
+
+function splitDiffTokens(raw: string): [string, string] | null {
+  let i = 0;
+  const readToken = (): string | null => {
+    if (i >= raw.length) return null;
+    if (raw[i] === '"') {
+      let j = i + 1;
+      let token = '"';
+      while (j < raw.length) {
+        const ch = raw[j];
+        token += ch;
+        if (ch === '"' && raw[j - 1] !== '\\') {
+          i = j + 1;
+          return token;
+        }
+        j++;
+      }
+      return null;
+    }
+    let j = i;
+    while (j < raw.length && raw[j] !== ' ') {
+      j++;
+    }
+    const token = raw.slice(i, j);
+    i = j;
+    return token;
+  };
+
+  const first = readToken();
+  if (!first) return null;
+  while (i < raw.length && raw[i] === ' ') i++;
+  const second = readToken();
+  if (!second) return null;
+  return [first, second];
+}
+
+function parseDiffGitLine(line: string): DiffPaths | null {
+  if (!line.startsWith('diff --git ')) return null;
+  const rest = line.slice('diff --git '.length);
+  const tokens = splitDiffTokens(rest);
+  if (!tokens) return null;
+  const [oldRaw, newRaw] = tokens;
+  return {
+    oldPath: normalizeDiffPath(oldRaw),
+    newPath: normalizeDiffPath(newRaw)
+  };
+}
+
+function parseHeaderPath(line: string): string | null {
+  if (!(line.startsWith('--- ') || line.startsWith('+++ '))) return null;
+  const rest = line.slice(4);
+  const token = splitDiffTokens(rest)?.[0] || rest.split('\t')[0] || rest.split(' ')[0];
+  if (!token) return null;
+  return normalizeDiffPath(token);
+}
+
 /**
  * Parse a unified diff string into structured data.
  * Extracts files, hunks, and line-by-line changes from git diff output.
@@ -33,29 +129,17 @@ export function parseDiff(diffText: string): DiffFile[] {
         files.push(currentFile);
       }
       
-      // Parse file paths from diff --git line
-      // Standard format: diff --git a/path/to/old b/path/to/new
-      // Also handles non-standard prefixes (diff.noprefix, diff.mnemonicPrefix)
-      const match = line.match(/diff --git a\/(.+?) b\/(.+)$/);
-      if (match) {
-        const [, oldPath, newPath] = match;
+      // Parse file paths from diff --git line (handles prefixes + quoted paths)
+      const paths = parseDiffGitLine(line);
+      if (paths) {
+        const primaryPath = paths.newPath || paths.oldPath;
         currentFile = {
-          path: newPath,
-          oldPath: oldPath === newPath ? undefined : oldPath,
+          path: primaryPath,
+          oldPath: paths.oldPath && paths.oldPath !== primaryPath ? paths.oldPath : undefined,
           hunks: []
         };
       } else {
-        // Fallback: handle no-prefix ("diff --git X Y") or custom prefix formats
-        // Extract path by looking ahead for +++ line which is more reliable
         currentFile = { path: '', hunks: [] };
-        // Scan ahead for +++ line to extract the destination path
-        for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
-          const plusMatch = lines[j].match(/^\+\+\+ (?:b\/)?(.+)$/);
-          if (plusMatch && plusMatch[1] !== '/dev/null') {
-            currentFile.path = plusMatch[1];
-            break;
-          }
-        }
       }
       currentHunk = null;
       continue;
@@ -63,12 +147,18 @@ export function parseDiff(diffText: string): DiffFile[] {
     
     // Skip header lines (index, ---, +++, etc.)
     if (line.startsWith('index ') || 
-        line.startsWith('--- ') || 
-        line.startsWith('+++ ') ||
         line.startsWith('new file') ||
         line.startsWith('deleted file') ||
         line.startsWith('similarity') ||
         line.startsWith('rename')) {
+      continue;
+    }
+
+    if ((line.startsWith('--- ') || line.startsWith('+++ ')) && currentFile && !currentFile.path) {
+      const headerPath = parseHeaderPath(line);
+      if (headerPath) {
+        currentFile.path = headerPath;
+      }
       continue;
     }
     
