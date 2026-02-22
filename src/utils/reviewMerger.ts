@@ -38,10 +38,15 @@ export interface GroupResponse {
 function mergeFileHunks(file: any, parsedDiff: DiffFile[], groupId?: string): any {
   const parsedFile = parsedDiff.find(pd => pd.path === file.path);
   if (!parsedFile) {
-    logger.warn('reviewMerger', 'AI-referenced file not found in parsed diff', { 
+    const hasEmptyPaths = parsedDiff.some(p => !p.path);
+    logger.warn('reviewMerger', 'AI-referenced file not found in parsed diff', {
       file: file.path,
       groupId,
-      availableFiles: parsedDiff.map(p => p.path)
+      availableFiles: parsedDiff.map(p => p.path || '(empty)'),
+      hasEmptyPaths,
+      possibleCause: hasEmptyPaths
+        ? 'Diff parsing failed to extract file paths - likely git config issue (diff.noprefix or diff.mnemonicPrefix)'
+        : 'AI referenced a file not present in the diff'
     });
     return file;
   }

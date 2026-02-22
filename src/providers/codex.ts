@@ -340,7 +340,7 @@ export class CodexProvider implements ReviewProvider {
             const turnId = turn?.id;
             if (expectedTurnId && turnId && turnId !== expectedTurnId) return;
             if (status && status !== 'completed') {
-              reject(new Error(`Codex turn ended with status: ${status}`));
+              reject(new Error(`Codex turn ended with status: ${status}, details: ${JSON.stringify(turn).slice(0, 300)}`));
             } else {
               resolve();
             }
@@ -350,9 +350,17 @@ export class CodexProvider implements ReviewProvider {
               const turnId = msg.params?.turn?.id;
               if (expectedTurnId && turnId && turnId !== expectedTurnId) return;
             }
+            logger.error('codex', 'Turn failed notification received', {
+              method: msg.method,
+              params: JSON.stringify(msg.params || {}).slice(0, 500)
+            }, opId);
             clearTimeout(timeout);
             client!.off('notification', onNotification);
-            reject(new Error('Codex turn failed'));
+            const errorDetail = msg.params?.error?.message
+              || msg.params?.reason
+              || msg.params?.message
+              || JSON.stringify(msg.params || {}).slice(0, 300);
+            reject(new Error(`Codex turn failed: ${errorDetail}`));
           }
         };
 

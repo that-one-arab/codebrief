@@ -86,6 +86,16 @@ export async function generateReview(
       generationId
     }, opId);
 
+    // Detect potential diff parsing issues early
+    const emptyPathFiles = gitContext.parsedDiff.filter(f => !f.path);
+    if (emptyPathFiles.length > 0) {
+      logger.error('reviewGenerator', 'Parsed diff has files with empty paths - review will likely fail', {
+        emptyPathCount: emptyPathFiles.length,
+        parsedPaths: gitContext.parsedDiff.map(f => f.path || '(empty)'),
+        generationId
+      }, opId);
+    }
+
     if (isLargeDiff) {
       vscode.window.showWarningMessage(
         'Your code changes are very large and may produce inconsistent results.'
@@ -312,8 +322,11 @@ export async function generateReview(
       if (uncovered.length > 0) {
         const totalHunks = gitContext.parsedDiff.reduce((sum, f) => sum + f.hunks.length, 0);
         const pct = Math.round((uncovered.length / totalHunks) * 100);
+        const uncoveredPaths = uncovered.map(h => h.path);
+        const hasEmptyPaths = uncoveredPaths.some(p => !p);
         throw new ReviewIncompleteError(
-          `${uncovered.length}/${totalHunks} hunks (${pct}%) not assigned to any group`
+          `${uncovered.length}/${totalHunks} hunks (${pct}%) not assigned to any group`,
+          hasEmptyPaths ? 'diff-parse-failure' : undefined
         );
       }
 

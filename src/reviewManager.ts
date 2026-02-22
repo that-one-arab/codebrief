@@ -106,6 +106,14 @@ export class ReviewManager {
         return;
       } catch (error) {
         if (error instanceof ReviewIncompleteError && attempt < maxRetries) {
+          // Don't retry deterministic failures (e.g., diff parsing produced empty paths)
+          if (error.cause === 'diff-parse-failure') {
+            logger.warn('reviewManager', 'Skipping retry - failure is deterministic (diff parsing issue)', {
+              reason: error.reason,
+              cause: error.cause
+            });
+            throw error;
+          }
           logger.warn('reviewManager', 'Review incomplete, retrying', {
             reason: error.reason,
             attempt: attempt + 1,

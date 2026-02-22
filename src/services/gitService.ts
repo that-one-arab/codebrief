@@ -48,15 +48,18 @@ export function getGitContext(workspaceRoot: string): GitContext {
 
   const startTime = Date.now();
 
+  // Force standard a/ b/ prefixes to override user config (diff.noprefix, diff.mnemonicPrefix)
+  const diffPrefixArgs = ['--src-prefix=a/', '--dst-prefix=b/'];
+
   // Get tracked changes
-  const trackedDiff = exec('git diff HEAD', 'tracked-diff');
-  
+  const trackedDiff = exec(`git diff ${diffPrefixArgs.join(' ')} HEAD`, 'tracked-diff');
+
   // Get untracked files and their diffs
   const untrackedFiles = exec('git ls-files --others --exclude-standard', 'untracked-files');
   const untrackedDiff = untrackedFiles
     ? untrackedFiles
         .split('\n')
-        .map(file => execDiff(['diff', '--no-index', '--', '/dev/null', file]))
+        .map(file => execDiff(['diff', '--no-index', ...diffPrefixArgs, '--', '/dev/null', file]))
         .filter(Boolean)
         .join('\n')
     : '';
@@ -67,7 +70,26 @@ export function getGitContext(workspaceRoot: string): GitContext {
   // Parse diff locally for line-level info
   logger.debug('gitService', 'Parsing diff', { diffLength: diff.length });
   const parsedDiff = parseDiff(diff);
-  
+
+  // Validate parsed diff - detect empty file paths
+  const emptyPathFiles = parsedDiff.filter(f => !f.path);
+  if (emptyPathFiles.length > 0) {
+    logger.warn('gitService', 'Parsed diff contains files with empty paths', {
+      emptyPathCount: emptyPathFiles.length,
+      totalFiles: parsedDiff.length,
+      hint: 'User may have diff.noprefix or diff.mnemonicPrefix set in git config'
+    });
+  }
+
+  if (filesChanged.length === 0 && diff.length > 0) {
+    logger.warn('gitService', 'Diff content present but no files extracted', {
+      diffLength: diff.length,
+      trackedDiffLength: trackedDiff.length,
+      untrackedDiffLength: untrackedDiff.length,
+      hint: 'File path extraction may have failed - check git diff prefix settings'
+    });
+  }
+
   const context: GitContext = {
     head: exec('git rev-parse --short HEAD', 'head'),
     branch: exec('git rev-parse --abbrev-ref HEAD', 'branch'),
@@ -94,14 +116,30 @@ export function getGitContext(workspaceRoot: string): GitContext {
 }
 
 function extractFilesFromDiff(diff: string): string[] {
-  return diff
-    .split('\n')
-    .filter(line => line.startsWith('diff --git'))
-    .map(line => {
-      const match = line.match(/b\/(.*)$/);
-      return match ? match[1] : '';
-    })
-    .filter(Boolean);
+  const lines = diff.split('\n');
+  const files: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].startsWith('diff --git')) continue;
+
+    // Standard format: diff --git a/path b/path
+    const match = lines[i].match(/b\/(.*)$/);
+    if (match && match[1]) {
+      files.push(match[1]);
+      continue;
+    }
+
+    // Fallback for non-standard prefixes: extract from +++ line
+    for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
+      const plusMatch = lines[j].match(/^\+\+\+ (?:b\/)?(.+)$/);
+      if (plusMatch && plusMatch[1] !== '/dev/null') {
+        files.push(plusMatch[1]);
+        break;
+      }
+    }
+  }
+
+  return files;
 }
 
 /**

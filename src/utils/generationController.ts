@@ -168,10 +168,12 @@ export class GenerationCancelledError extends Error {
 
 export class ReviewIncompleteError extends Error {
   readonly reason: string;
+  readonly cause?: string; // 'diff-parse-failure' = deterministic, don't retry
 
-  constructor(reason: string) {
+  constructor(reason: string, cause?: string) {
     super(`Review output incomplete: ${reason}`);
     this.name = 'ReviewIncompleteError';
     this.reason = reason;
+    this.cause = cause;
   }
 }

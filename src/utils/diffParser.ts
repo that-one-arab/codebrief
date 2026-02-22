@@ -34,7 +34,8 @@ export function parseDiff(diffText: string): DiffFile[] {
       }
       
       // Parse file paths from diff --git line
-      // Format: diff --git a/path/to/old b/path/to/new
+      // Standard format: diff --git a/path/to/old b/path/to/new
+      // Also handles non-standard prefixes (diff.noprefix, diff.mnemonicPrefix)
       const match = line.match(/diff --git a\/(.+?) b\/(.+)$/);
       if (match) {
         const [, oldPath, newPath] = match;
@@ -44,7 +45,17 @@ export function parseDiff(diffText: string): DiffFile[] {
           hunks: []
         };
       } else {
+        // Fallback: handle no-prefix ("diff --git X Y") or custom prefix formats
+        // Extract path by looking ahead for +++ line which is more reliable
         currentFile = { path: '', hunks: [] };
+        // Scan ahead for +++ line to extract the destination path
+        for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
+          const plusMatch = lines[j].match(/^\+\+\+ (?:b\/)?(.+)$/);
+          if (plusMatch && plusMatch[1] !== '/dev/null') {
+            currentFile.path = plusMatch[1];
+            break;
+          }
+        }
       }
       currentHunk = null;
       continue;
