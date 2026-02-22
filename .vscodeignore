@@ -8,3 +8,8 @@ README.md
 .dev/**
 .env
 .env.local
+landing-page/**
+AGENTS.md
+vitest.config.ts
+.claude/**
+scripts/**
