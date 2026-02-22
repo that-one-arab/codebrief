@@ -30,7 +30,7 @@ export function getGitContext(workspaceRoot: string): GitContext {
       });
       return result;
     } catch (error: any) {
-      logger.debug('gitService', `Git command failed${context ? `: ${context}` : ''}`, {
+      logger.warn('gitService', `Git command failed${context ? `: ${context}` : ''}`, {
         command: cmd.slice(0, 50),
         error: error.message
       });
@@ -42,6 +42,10 @@ export function getGitContext(workspaceRoot: string): GitContext {
     try {
       return execFileSync('git', args, { cwd: workspaceRoot, encoding: 'utf-8' }).trim();
     } catch (error: any) {
+      logger.warn('gitService', 'Git diff command failed', {
+        args,
+        error: error.message
+      });
       return (error?.stdout?.toString('utf-8') ?? '').trim();
     }
   };

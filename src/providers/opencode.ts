@@ -102,7 +102,7 @@ async function checkForSessions(port: number, workspaceRoot: string, operationId
     
     return matching.length > 0;
   } catch (e: any) {
-    logger.debug('opencode', 'Session query failed', { error: e.name, message: e.message }, operationId);
+    logger.warn('opencode', 'Session query failed', { error: e.name, message: e.message }, operationId);
     return false;
   }
 }

@@ -87,7 +87,13 @@ export class ReviewManager {
       vscode.window.showInformationMessage('Cancelling previous review and starting new one...');
     }
 
-    const provider = await getProvider(this.context);
+    let provider: import('./providers').ReviewProvider;
+    try {
+      provider = await getProvider(this.context);
+    } catch (error: any) {
+      logger.error('reviewManager', 'Failed to resolve provider', { error: error?.message || String(error) });
+      throw error;
+    }
     this.intentProvider.setWorkspaceRoot(workspace);
     // Open panel first so it subscribes to store events
     ReviewPanel.createOrShowLoading(this.context.extensionUri);
@@ -143,7 +149,13 @@ export class ReviewManager {
     }
 
     // Resolve provider first (may show Quick Pick) before any UI changes
-    const provider = await getProvider(this.context);
+    let provider: import('./providers').ReviewProvider;
+    try {
+      provider = await getProvider(this.context);
+    } catch (error: any) {
+      logger.error('reviewManager', 'Failed to resolve provider', { error: error?.message || String(error) });
+      throw error;
+    }
 
     this.intentProvider.setWorkspaceRoot(workspaceFolder.uri.fsPath);
 
@@ -180,7 +192,13 @@ export class ReviewManager {
     }
 
     // Resolve provider first (may show Quick Pick) before any UI changes
-    const provider = await getProvider(this.context);
+    let provider: import('./providers').ReviewProvider;
+    try {
+      provider = await getProvider(this.context);
+    } catch (error: any) {
+      logger.error('reviewManager', 'Failed to resolve provider', { error: error?.message || String(error) });
+      throw error;
+    }
 
     // Hide the welcome message and show skeletons while regenerating
     vscode.commands.executeCommand('setContext', 'aiCodeReview:noReviewGenerated', false);

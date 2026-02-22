@@ -167,7 +167,10 @@ async function findLatestThreadForWorkspace(
         return thread.id || null;
       }
     } catch (e) {
-      // ignore threads we can't read
+      logger.warn('codex', 'Failed to read thread while searching for workspace', {
+        threadId: thread.id,
+        error: (e as Error).message
+      }, operationId);
     }
   }
 
