@@ -31,18 +31,19 @@ const PROVIDERS: Record<string, ProviderEntry> = {
     description: 'Anthropic Claude Code CLI',
     create: () => new ClaudeCodeProvider(),
   },
-  'opencode': {
-    name: 'OpenCode',
-    binary: 'opencode',
-    description: 'OpenCode CLI',
-    create: () => new OpenCodeProvider(),
-  },
-  'codex': {
-    name: 'Codex',
-    binary: 'codex',
-    description: 'OpenAI Codex CLI',
-    create: () => new CodexProvider(),
-  },
+  // Temporarily disabled
+  // 'opencode': {
+  //   name: 'OpenCode',
+  //   binary: 'opencode',
+  //   description: 'OpenCode CLI',
+  //   create: () => new OpenCodeProvider(),
+  // },
+  // 'codex': {
+  //   name: 'Codex',
+  //   binary: 'codex',
+  //   description: 'OpenAI Codex CLI',
+  //   create: () => new CodexProvider(),
+  // },
 };
 
 function isBinaryInstalled(binary: string): boolean {
