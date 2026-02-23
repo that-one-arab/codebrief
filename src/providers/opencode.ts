@@ -326,9 +326,29 @@ async function sendMessage(port: number, sessionId: string, text: string, operat
       throw new Error(`Message failed: ${res.status} ${res.statusText}`);
     }
 
-    const data = await res.json();
-    logger.info('opencode', 'Message completed', { elapsedMs: elapsed, status: res.status }, operationId);
-    return data;
+    const rawBody = await res.text();
+    if (!rawBody.trim()) {
+      logger.info('opencode', 'Message completed with empty response body', {
+        elapsedMs: elapsed,
+        status: res.status,
+      }, operationId);
+      return null;
+    }
+
+    try {
+      const data = JSON.parse(rawBody);
+      logger.info('opencode', 'Message completed', { elapsedMs: elapsed, status: res.status }, operationId);
+      return data;
+    } catch (parseError: any) {
+      logger.error('opencode', 'Message returned non-JSON response body', {
+        elapsedMs: elapsed,
+        status: res.status,
+        contentType: res.headers.get('content-type'),
+        bodyPreview: rawBody.slice(0, 200),
+        parseError: parseError.message,
+      }, operationId);
+      throw new Error('OpenCode returned non-JSON response body');
+    }
   } catch (e: any) {
     const elapsed = Date.now() - sendStart;
     if (e.name === 'AbortError') {
