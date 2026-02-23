@@ -38,12 +38,12 @@ const PROVIDERS: Record<string, ProviderEntry> = {
   //   description: 'OpenCode CLI',
   //   create: () => new OpenCodeProvider(),
   // },
-  // 'codex': {
-  //   name: 'Codex',
-  //   binary: 'codex',
-  //   description: 'OpenAI Codex CLI',
-  //   create: () => new CodexProvider(),
-  // },
+  'codex': {
+    name: 'Codex',
+    binary: 'codex',
+    description: 'OpenAI Codex CLI',
+    create: () => new CodexProvider(),
+  },
 };
 
 function isBinaryInstalled(binary: string): boolean {

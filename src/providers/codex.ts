@@ -276,35 +276,40 @@ export class CodexProvider implements ReviewProvider {
     const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ai-review-'));
     let baseThreadId: string | null = null;
     let runThreadId: string | null = null;
+    let shouldArchiveRunThread = false;
 
     try {
       client = await startAppServer(opId);
       
       baseThreadId = await findLatestThreadForWorkspace(client, normalizedWorkspace, opId);
 
-      try {
-        if (!baseThreadId) {
-          throw new Error('No base thread found for workspace');
-        }
-        const forked = await client.request('thread/fork', { threadId: baseThreadId });
-        runThreadId = forked?.thread?.id;
-        logger.info('codex', 'Forked thread', { baseThreadId, runThreadId }, opId);
-      } catch (e) {
-        logger.info('codex', 'Fork failed, creating new thread', { error: (e as Error).message }, opId);
-        
+      if (!baseThreadId) {
+        logger.info('codex', 'No base thread found, creating new base thread', undefined, opId);
+
         const result = await client.request('thread/start', {
           cwd: normalizedWorkspace,
           approvalPolicy: 'never',
-          sandbox: 'workspaceWrite'
+          sandbox: 'workspace-write'
         });
         baseThreadId = result?.thread?.id || null;
         if (!baseThreadId) {
           throw new Error('Failed to create base thread');
         }
-
-        const forked = await client.request('thread/fork', { threadId: baseThreadId });
-        runThreadId = forked?.thread?.id;
-        logger.info('codex', 'Created and forked new thread', { baseThreadId, runThreadId }, opId);
+        runThreadId = baseThreadId;
+        logger.info('codex', 'Using new base thread directly for this run', { runThreadId }, opId);
+      } else {
+        try {
+          const forked = await client.request('thread/fork', { threadId: baseThreadId });
+          runThreadId = forked?.thread?.id;
+          shouldArchiveRunThread = true;
+          logger.info('codex', 'Forked thread', { baseThreadId, runThreadId }, opId);
+        } catch (e) {
+          logger.warn('codex', 'Fork failed, using base thread directly', {
+            baseThreadId,
+            error: (e as Error).message
+          }, opId);
+          runThreadId = baseThreadId;
+        }
       }
 
       if (!runThreadId) {
@@ -400,8 +405,9 @@ export class CodexProvider implements ReviewProvider {
       endOperation(opId, 'error', { error: error.message });
       throw error;
     } finally {
-      // Clean up: archive the run thread (fork or newly-created)
-      if (runThreadId && client) {
+      // Clean up: archive only forked run threads.
+      // Base threads are kept for later reuse/forking.
+      if (runThreadId && client && shouldArchiveRunThread) {
         try {
           await client.request('thread/archive', { threadId: runThreadId });
           logger.debug('codex', 'Archived run thread', { runThreadId }, opId);
