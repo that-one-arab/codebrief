@@ -22,6 +22,7 @@ const SERVER_STARTUP_TIMEOUT_MS = 15_000;
 const SERVER_POLL_INTERVAL_MS = 300;
 const MESSAGE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const GROUP_CHECK_INTERVAL_MS = 500;
+const DIAGNOSTIC_BUFFER_LIMIT = 200;
 
 // Cache for opencode state directory path
 let opencodeStateDir: string | null = null;
@@ -82,6 +83,48 @@ interface OpenCodeServer {
   port: number;
   process: ChildProcess | null;
   forkSession: boolean;
+  diagnostics: ServerDiagnostics;
+}
+
+interface ServerDiagnostics {
+  stdout: string[];
+  stderr: string[];
+}
+
+function mapDiagnosticsToUserError(diagnostics?: ServerDiagnostics): string | null {
+  if (!diagnostics?.stderr?.length) return null;
+  const stderr = diagnostics.stderr.join('\n');
+
+  if (stderr.includes('ProviderModelNotFoundError')) {
+    const providerMatch = stderr.match(/providerID:\s*"([^"]+)"/);
+    const modelMatch = stderr.match(/modelID:\s*"([^"]+)"/);
+    const provider = providerMatch?.[1] ?? 'unknown';
+    const model = modelMatch?.[1] ?? 'unknown';
+    return `OpenCode model configuration error: provider "${provider}" cannot find model "${model}". Update your OpenCode provider/model selection and retry.`;
+  }
+
+  if (stderr.includes('ModelNotFoundError')) {
+    return 'OpenCode model configuration error: selected model was not found. Update your OpenCode provider/model selection and retry.';
+  }
+
+  return null;
+}
+
+function pushDiagnosticLine(buffer: string[], line: string): void {
+  buffer.push(line);
+  if (buffer.length > DIAGNOSTIC_BUFFER_LIMIT) {
+    buffer.splice(0, buffer.length - DIAGNOSTIC_BUFFER_LIMIT);
+  }
+}
+
+function appendDiagnosticChunk(buffer: string[], chunk: string): void {
+  const normalized = chunk.replace(/\r/g, '');
+  for (const line of normalized.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      pushDiagnosticLine(buffer, trimmed.slice(0, 500));
+    }
+  }
 }
 
 async function checkForSessions(port: number, workspaceRoot: string, operationId?: string): Promise<boolean> {
@@ -133,7 +176,12 @@ async function waitForServer(port: number, operationId?: string): Promise<void> 
   throw new Error(`OpenCode server did not start within ${SERVER_STARTUP_TIMEOUT_MS / 1000}s`);
 }
 
-async function startOpenCodeServer(port: number, cwd: string, operationId?: string): Promise<ChildProcess> {
+async function startOpenCodeServer(
+  port: number,
+  cwd: string,
+  diagnostics: ServerDiagnostics,
+  operationId?: string,
+): Promise<ChildProcess> {
   logger.info('opencode', 'Spawning server', { port, cwd }, operationId);
 
   const proc = spawn('opencode', ['serve', '--port', String(port)], {
@@ -147,6 +195,7 @@ async function startOpenCodeServer(port: number, cwd: string, operationId?: stri
   // Sample stdout/stderr to avoid noise
   proc.stdout?.on('data', (data) => {
     const trimmed = data.toString().trim();
+    appendDiagnosticChunk(diagnostics.stdout, data.toString());
     if (trimmed) {
       sampleLog('debug', 'opencode', 'stdout', 'Server stdout', { msg: trimmed.slice(0, 100) }, 5);
     }
@@ -154,6 +203,7 @@ async function startOpenCodeServer(port: number, cwd: string, operationId?: stri
 
   proc.stderr?.on('data', (data) => {
     const trimmed = data.toString().trim();
+    appendDiagnosticChunk(diagnostics.stderr, data.toString());
     if (trimmed) {
       sampleLog('debug', 'opencode', 'stderr', 'Server stderr', { msg: trimmed.slice(0, 100) }, 5);
     }
@@ -170,7 +220,8 @@ async function acquireServer(workspaceRoot: string, operationId?: string): Promi
   const port = await detect(DEFAULT_PORT);
   logger.debug('opencode', 'Port detected', { port, requested: DEFAULT_PORT }, operationId);
 
-  const proc = await startOpenCodeServer(port, workspaceRoot, operationId);
+  const diagnostics: ServerDiagnostics = { stdout: [], stderr: [] };
+  const proc = await startOpenCodeServer(port, workspaceRoot, diagnostics, operationId);
 
   proc.on('error', (err) => {
     if (err.message.includes('ENOENT')) {
@@ -191,7 +242,7 @@ async function acquireServer(workspaceRoot: string, operationId?: string): Promi
   const forkSession = await checkForSessions(port, workspaceRoot, operationId);
   logger.info('opencode', 'Server acquired', { port, pid: proc.pid, forkSession }, operationId);
 
-  return { port, process: proc, forkSession };
+  return { port, process: proc, forkSession, diagnostics };
 }
 
 // =============================================================================
@@ -278,7 +329,14 @@ async function getRecentModel(operationId?: string): Promise<{ modelID: string; 
 }
 
 /** Send a message and return the raw response body. */
-async function sendMessage(port: number, sessionId: string, text: string, operationId?: string, cancellationToken?: CancellationToken): Promise<any> {
+async function sendMessage(
+  port: number,
+  sessionId: string,
+  text: string,
+  diagnostics?: ServerDiagnostics,
+  operationId?: string,
+  cancellationToken?: CancellationToken,
+): Promise<any> {
   const promptPreview = text.slice(0, 100).replace(/\n/g, '\\n');
   
   logger.info('opencode', 'Sending message', { 
@@ -318,20 +376,34 @@ async function sendMessage(port: number, sessionId: string, text: string, operat
 
     if (!res.ok) {
       const body = await res.text();
+      const mappedError = mapDiagnosticsToUserError(diagnostics);
       logger.error('opencode', 'Message failed', { 
         elapsedMs: elapsed, 
         status: res.status, 
-        body: body.slice(0, 200) 
+        body: body.slice(0, 200),
+        serverStderrTail: diagnostics?.stderr.slice(-20),
+        serverStdoutTail: diagnostics?.stdout.slice(-10),
+        mappedError,
       }, operationId);
+      if (mappedError) {
+        throw new Error(mappedError);
+      }
       throw new Error(`Message failed: ${res.status} ${res.statusText}`);
     }
 
     const rawBody = await res.text();
     if (!rawBody.trim()) {
+      const mappedError = mapDiagnosticsToUserError(diagnostics);
       logger.info('opencode', 'Message completed with empty response body', {
         elapsedMs: elapsed,
         status: res.status,
+        serverStderrTail: diagnostics?.stderr.slice(-20),
+        serverStdoutTail: diagnostics?.stdout.slice(-10),
+        mappedError,
       }, operationId);
+      if (mappedError) {
+        throw new Error(mappedError);
+      }
       return null;
     }
 
@@ -340,13 +412,20 @@ async function sendMessage(port: number, sessionId: string, text: string, operat
       logger.info('opencode', 'Message completed', { elapsedMs: elapsed, status: res.status }, operationId);
       return data;
     } catch (parseError: any) {
+      const mappedError = mapDiagnosticsToUserError(diagnostics);
       logger.error('opencode', 'Message returned non-JSON response body', {
         elapsedMs: elapsed,
         status: res.status,
         contentType: res.headers.get('content-type'),
         bodyPreview: rawBody.slice(0, 200),
         parseError: parseError.message,
+        serverStderrTail: diagnostics?.stderr.slice(-20),
+        serverStdoutTail: diagnostics?.stdout.slice(-10),
+        mappedError,
       }, operationId);
+      if (mappedError) {
+        throw new Error(mappedError);
+      }
       throw new Error('OpenCode returned non-JSON response body');
     }
   } catch (e: any) {
@@ -363,7 +442,9 @@ async function sendMessage(port: number, sessionId: string, text: string, operat
     logger.error('opencode', 'Message error', { 
       elapsedMs: elapsed, 
       error: e.name, 
-      message: e.message 
+      message: e.message,
+      serverStderrTail: diagnostics?.stderr.slice(-20),
+      serverStdoutTail: diagnostics?.stdout.slice(-10),
     }, operationId);
     throw e;
   } finally {
@@ -451,7 +532,7 @@ export class OpenCodeProvider implements ReviewProvider {
 
       try {
         logger.info('opencode', 'Sending prompt to AI', undefined, opId);
-        await sendMessage(server.port, sessionId, prompt, opId, cancellationToken);
+        await sendMessage(server.port, sessionId, prompt, server.diagnostics, opId, cancellationToken);
         logger.info('opencode', 'AI message completed', undefined, opId);
       } finally {
         await poller.stop();

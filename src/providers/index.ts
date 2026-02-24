@@ -31,13 +31,12 @@ const PROVIDERS: Record<string, ProviderEntry> = {
     description: 'Anthropic Claude Code CLI',
     create: () => new ClaudeCodeProvider(),
   },
-  // Temporarily disabled
-  // 'opencode': {
-  //   name: 'OpenCode',
-  //   binary: 'opencode',
-  //   description: 'OpenCode CLI',
-  //   create: () => new OpenCodeProvider(),
-  // },
+  'opencode': {
+    name: 'OpenCode',
+    binary: 'opencode',
+    description: 'OpenCode CLI',
+    create: () => new OpenCodeProvider(),
+  },
   'codex': {
     name: 'Codex',
     binary: 'codex',
