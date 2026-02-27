@@ -25,6 +25,29 @@
   min-width: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.header-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--fg-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-btn:hover {
+  color: var(--fg-primary);
+  border-color: var(--accent-color);
+}
+
 .experiment-title {
   font-size: 14px;
   font-weight: 600;
@@ -137,4 +160,3 @@
 .progress-spinner.hidden {
   display: none;
 }
-

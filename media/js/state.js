@@ -15,6 +15,7 @@
     streamingState: new Map(),
     collapsedGroups: new Set(),
     collapsedFiles: new Set(),
-    pendingContextLoads: new Set()
+    pendingContextLoads: new Set(),
+    explanationsHidden: false
   };
 })();

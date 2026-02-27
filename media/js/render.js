@@ -306,12 +306,24 @@
     const providerBadge = state.providerName
       ? `<span class="provider-badge">${escapeHtml(state.providerName)}</span>`
       : '';
+    const explanationToggleText = state.explanationsHidden ? 'Show Explanations' : 'Hide Explanations';
     return `
       <header class="experiment-header">
         <div class="header-content">
           <div class="header-left">
             <h1 class="experiment-title">${escapeHtml(title || 'Codebrief')}</h1>
             ${providerBadge}
+          </div>
+          <div class="header-actions">
+            <button
+              class="header-btn"
+              id="btn-toggle-explanations"
+              type="button"
+              aria-pressed="${state.explanationsHidden}"
+              title="${explanationToggleText}"
+            >
+              ${explanationToggleText}
+            </button>
           </div>
           <div class="experiment-progress">
             ${aiIndicator}

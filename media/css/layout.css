@@ -102,6 +102,14 @@
   overflow-y: auto;
 }
 
+.hide-explanations .explanation-panel {
+  display: none;
+}
+
+.hide-explanations .code-panel {
+  width: 100%;
+}
+
 .explanation-panel::-webkit-scrollbar {
   width: 6px;
 }

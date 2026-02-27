@@ -15,6 +15,10 @@
         state.vscode.postMessage({ command: 'commitAll' });
       }
     });
+    document.getElementById('btn-toggle-explanations')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleExplanations();
+    });
 
     // Attach copy button listeners
     attachCopyButtonListeners();
@@ -58,6 +62,7 @@
     });
 
     setupScrollObserver();
+    applyExplanationVisibility();
   }
 
   function attachExpandListeners(container) {
@@ -406,6 +411,24 @@
     }
   }
 
+  function toggleExplanations() {
+    state.explanationsHidden = !state.explanationsHidden;
+    applyExplanationVisibility();
+  }
+
+  function applyExplanationVisibility() {
+    state.app.classList.toggle('hide-explanations', state.explanationsHidden);
+
+    const button = document.getElementById('btn-toggle-explanations');
+    if (!button) return;
+
+    const buttonText = state.explanationsHidden ? 'Show Explanations' : 'Hide Explanations';
+    button.textContent = buttonText;
+    button.title = buttonText;
+    button.setAttribute('aria-label', buttonText);
+    button.setAttribute('aria-pressed', String(state.explanationsHidden));
+  }
+
   AIReview.navigation = {
     attachEventListeners,
     attachExpandListeners,
@@ -422,6 +445,8 @@
     openFile,
     setupKeyboardShortcuts,
     onCommitSuccess,
-    setupScrollObserver
+    setupScrollObserver,
+    toggleExplanations,
+    applyExplanationVisibility
   };
 })();
