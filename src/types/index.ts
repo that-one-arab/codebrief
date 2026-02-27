@@ -26,6 +26,14 @@ export interface DiffFile {
   hunks: DiffHunk[];
 }
 
+export interface FileSummary {
+  path: string;
+  hunks: number;
+  additions: number;
+  deletions: number;
+  linesChanged: number;
+}
+
 export interface GitContext {
   head: string;
   branch: string;
@@ -47,6 +55,7 @@ export interface GroupMetadata {
   title: string;
   fileCount?: number;
   estimatedLines?: number;
+  files?: string[] | GroupFile[];
 }
 
 /** File info for a group (from AI provider) */

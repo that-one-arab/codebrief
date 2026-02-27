@@ -3,6 +3,7 @@
  */
 
 export * from './diffParser';
+export * from './diffSummary';
 export * from './highlighter';
 export * from './reviewMerger';
 export * from './themeLoader';

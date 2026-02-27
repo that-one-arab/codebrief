@@ -98,9 +98,9 @@ export async function generateReview(
 
     if (isLargeDiff) {
       vscode.window.showWarningMessage(
-        'Your code changes are very large and may produce inconsistent results.'
+        'Your code changes are very large. It may take longer to review and may have lower quality results.'
       );
-      logger.warn('reviewGenerator', 'Large diff detected, using agent-driven mode', {
+      logger.warn('reviewGenerator', 'Large diff detected, using two-pass mode', {
         estimatedTokens, diffLength: gitContext.diff.length
       });
     }

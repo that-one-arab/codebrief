@@ -3,8 +3,11 @@
  * to embed directly in the prompt.
  */
 
-/** Threshold above which we switch to agent-driven mode (no embedded diff). */
+/** Threshold above which we switch to two-pass mode (no full diff prompt). */
 export const LARGE_DIFF_TOKEN_THRESHOLD = 80_000;
+
+/** Threshold above which we summarize per-group diffs before prompting. */
+export const GROUP_DIFF_TOKEN_THRESHOLD = 20_000;
 
 /**
  * Rough token estimate: ~4 characters per token.

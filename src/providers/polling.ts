@@ -18,6 +18,7 @@ export interface PollingOptions {
   onMetadata: (result: StreamingMetadataResult) => void | Promise<void>;
   onCommitMessage: (result: StreamingCommitMessageResult) => void | Promise<void>;
   cancellationToken?: CancellationToken;
+  startTimeMs?: number;
 }
 
 /**
@@ -44,7 +45,7 @@ function parseJsonWithRepair(content: string, component: string, filePath: strin
 }
 
 export function pollOutputDir(options: PollingOptions): { stop: () => Promise<void> } {
-  const { outputDir, intervalMs, onGroup, onMetadata, onCommitMessage, component, operationId, cancellationToken } = options;
+  const { outputDir, intervalMs, onGroup, onMetadata, onCommitMessage, component, operationId, cancellationToken, startTimeMs } = options;
   const writtenGroups = new Set<number>();
   let metadataReceived = false;
   let commitMessageReceived = false;
@@ -105,6 +106,10 @@ export function pollOutputDir(options: PollingOptions): { stop: () => Promise<vo
         try {
           // Get file stats for size and modification time
           const stats = await fs.stat(metadataPath);
+          if (startTimeMs && stats.mtimeMs < startTimeMs) {
+            // Ignore metadata from earlier runs
+            return;
+          }
           metadataFileSize = stats.size;
           
           const content = await fs.readFile(metadataPath, 'utf-8');
@@ -175,6 +180,9 @@ export function pollOutputDir(options: PollingOptions): { stop: () => Promise<vo
         try {
           // Get file stats
           const stats = await fs.stat(filepath);
+          if (startTimeMs && stats.mtimeMs < startTimeMs) {
+            continue;
+          }
           groupFileSizes.set(index, stats.size);
           
           const content = await fs.readFile(filepath, 'utf-8');
@@ -247,6 +255,9 @@ export function pollOutputDir(options: PollingOptions): { stop: () => Promise<vo
         const commitMessagePath = path.join(outputDir, 'commit-message.json');
         try {
           const stats = await fs.stat(commitMessagePath);
+          if (startTimeMs && stats.mtimeMs < startTimeMs) {
+            return;
+          }
           commitMessageFileSize = stats.size;
           
           const content = await fs.readFile(commitMessagePath, 'utf-8');

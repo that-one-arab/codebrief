@@ -10,9 +10,10 @@ import { logger, startOperation, endOperation, sampleLog } from '../utils/logger
 import { StreamingGroupResult, StreamingMetadataResult, StreamingCommitMessageResult, GitContext } from '../types';
 import { ReviewProvider } from './provider';
 import { buildStreamingPrompt } from './streamingPrompt';
-import { buildAgentDrivenPrompt, classifyFiles } from './agentDrivenPrompt';
+import { buildCommitMessagePrompt, buildGroupPrompt, buildGroupingPrompt } from './twoPassPrompts';
 import { pollOutputDir } from './polling';
-import { CancellationToken, throwIfCancelled } from '../utils';
+import { CancellationToken, throwIfCancelled, buildFileSummaries, buildHunkCoordinateIndex, renderGroupDiff, estimateTokens, GROUP_DIFF_TOKEN_THRESHOLD } from '../utils';
+import { jsonrepair } from 'jsonrepair';
 
 const CLAUDE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const GROUP_CHECK_INTERVAL_MS = 500;
@@ -45,20 +46,107 @@ export class ClaudeCodeProvider implements ReviewProvider {
 
       logger.info('claudeCode', 'Temp directory created', { outputDir }, opId);
 
-      const prompt = isLargeDiff
-        ? buildAgentDrivenPrompt(git.recentCommits, outputDir, classifyFiles(git.status))
-        : buildStreamingPrompt(git, outputDir);
-      logger.debug('claudeCode', 'Prompt built', {
-        promptLength: prompt.length,
-        outputDir,
-        isLargeDiff: !!isLargeDiff
-      }, opId);
+      if (!isLargeDiff) {
+        const prompt = buildStreamingPrompt(git, outputDir);
+        logger.debug('claudeCode', 'Prompt built', {
+          promptLength: prompt.length,
+          outputDir,
+          isLargeDiff: false
+        }, opId);
 
-      const allowedTools = isLargeDiff
-        ? ["Write", "Bash", "Read"]
-        : ["Write"];
+        await callClaudeStreaming(prompt, workspaceRoot, outputDir, onGroup, onMetadata, onCommitMessage, opId, cancellationToken, ["Write"]);
+      } else {
+        const fileSummaries = buildFileSummaries(git.parsedDiff, git.filesChanged);
+        const groupingPrompt = buildGroupingPrompt(fileSummaries, git.recentCommits, outputDir);
 
-      await callClaudeStreaming(prompt, workspaceRoot, outputDir, onGroup, onMetadata, onCommitMessage, opId, cancellationToken, allowedTools);
+        logger.debug('claudeCode', 'Two-pass grouping prompt built', {
+          promptLength: groupingPrompt.length,
+          outputDir
+        }, opId);
+
+        await callClaudeStreaming(groupingPrompt, workspaceRoot, outputDir, onGroup, onMetadata, onCommitMessage, opId, cancellationToken, ["Write"]);
+
+        const metadata = await readMetadataFile(outputDir, opId);
+        const groups = Array.isArray(metadata?.groups) ? metadata.groups : [];
+        const changesAuthoredByAi = !!metadata?.changesAuthoredByAi;
+
+        for (let i = 0; i < groups.length; i++) {
+          if (cancellationToken) {
+            throwIfCancelled(cancellationToken, `two-pass-group-${i}`);
+          }
+
+          const group = groups[i];
+          if (!group?.id || !group?.title) {
+            throw new Error(`Invalid group metadata at index ${i}`);
+          }
+          const groupFiles = Array.isArray(group?.files) ? group.files : [];
+          const groupDiffFiles = git.parsedDiff.filter(f => groupFiles.includes(f.path));
+          const hunkMap = buildHunkCoordinateIndex(groupDiffFiles);
+
+          const fullDiff = renderGroupDiff(groupDiffFiles, 'full');
+          const isSummary = estimateTokens(fullDiff) > GROUP_DIFF_TOKEN_THRESHOLD;
+          const diffText = isSummary ? renderGroupDiff(groupDiffFiles, 'summary') : fullDiff;
+
+          const groupPrompt = buildGroupPrompt({
+            groupIndex: i,
+            groupId: group.id,
+            title: group.title,
+            changesAuthoredByAi,
+            hunkMap,
+            diffText,
+            diffMode: isSummary ? 'summary' : 'full',
+            outputDir
+          });
+
+          logger.debug('claudeCode', 'Two-pass group prompt built', {
+            groupIndex: i,
+            groupId: group.id,
+            promptLength: groupPrompt.length,
+            summary: isSummary
+          }, opId);
+
+          await callClaudeStreaming(
+            groupPrompt,
+            workspaceRoot,
+            outputDir,
+            onGroup,
+            onMetadata,
+            onCommitMessage,
+            opId,
+            cancellationToken,
+            ["Write"],
+            Date.now()
+          );
+        }
+
+        const commitPrompt = buildCommitMessagePrompt({
+          title: metadata?.title || 'Codebrief',
+          groups: groups.map((group: any) => ({
+            id: group.id,
+            title: group.title,
+            files: Array.isArray(group.files) ? group.files : []
+          })),
+          recentCommits: git.recentCommits,
+          outputDir
+        });
+
+        logger.debug('claudeCode', 'Two-pass commit prompt built', {
+          promptLength: commitPrompt.length
+        }, opId);
+
+        await callClaudeStreaming(
+          commitPrompt,
+          workspaceRoot,
+          outputDir,
+          onGroup,
+          onMetadata,
+          onCommitMessage,
+          opId,
+          cancellationToken,
+          ["Write"],
+          Date.now()
+        );
+      }
 
       // Check if cancelled before marking success
       if (cancellationToken?.isCancelled) {
@@ -96,7 +184,8 @@ function callClaudeStreaming(
   onCommitMessage: (result: StreamingCommitMessageResult) => void | Promise<void>,
   parentOpId: string,
   cancellationToken?: CancellationToken,
-  allowedTools: string[] = ["Write"]
+  allowedTools: string[] = ["Write"],
+  pollStartTimeMs?: number
 ): Promise<void> {
   const callStart = Date.now();
   
@@ -140,7 +229,8 @@ function callClaudeStreaming(
       onGroup,
       onMetadata,
       onCommitMessage,
-      cancellationToken
+      cancellationToken,
+      startTimeMs: pollStartTimeMs
     });
 
     cleanup?.(() => {
@@ -216,6 +306,25 @@ function callClaudeStreaming(
       }
     });
   });
+}
+
+async function readMetadataFile(outputDir: string, opId?: string): Promise<any> {
+  const metadataPath = path.join(outputDir, 'metadata.json');
+  try {
+    const content = await fs.readFile(metadataPath, 'utf-8');
+    try {
+      return JSON.parse(content);
+    } catch {
+      const repaired = jsonrepair(content);
+      return JSON.parse(repaired);
+    }
+  } catch (error: any) {
+    logger.error('claudeCode', 'Failed to read metadata.json after grouping pass', {
+      filePath: metadataPath,
+      error: error.message
+    }, opId);
+    throw error;
+  }
 }
 
 function spawnClaude<T>(

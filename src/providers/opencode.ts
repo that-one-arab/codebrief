@@ -12,9 +12,10 @@ import { logger, startOperation, endOperation, sampleLog } from '../utils/logger
 import { StreamingGroupResult, StreamingMetadataResult, StreamingCommitMessageResult, GitContext } from '../types';
 import { ReviewProvider } from './provider';
 import { buildStreamingPrompt } from './streamingPrompt';
-import { buildAgentDrivenPrompt, classifyFiles } from './agentDrivenPrompt';
+import { buildCommitMessagePrompt, buildGroupPrompt, buildGroupingPrompt } from './twoPassPrompts';
 import { pollOutputDir } from './polling';
-import { CancellationToken } from '../utils';
+import { CancellationToken, buildFileSummaries, buildHunkCoordinateIndex, renderGroupDiff, estimateTokens, GROUP_DIFF_TOKEN_THRESHOLD } from '../utils';
+import { jsonrepair } from 'jsonrepair';
 
 const DEFAULT_PORT = 4096;
 const PROBE_TIMEOUT_MS = 1000;
@@ -514,28 +515,87 @@ export class OpenCodeProvider implements ReviewProvider {
       await fs.mkdir(outputDir, { recursive: true });
       logger.info('opencode', 'Temp directory created', { outputDir }, opId);
 
-      const prompt = isLargeDiff
-        ? buildAgentDrivenPrompt(git.recentCommits, outputDir, classifyFiles(git.status))
-        : buildStreamingPrompt(git, outputDir);
-      logger.debug('opencode', 'Prompt built', { promptLength: prompt.length, isLargeDiff: !!isLargeDiff }, opId);
+      const activeServer = server;
+      const activeSessionId = sessionId;
+      if (!activeServer || !activeSessionId) {
+        throw new Error('OpenCode session unavailable');
+      }
 
-      const poller = pollOutputDir({
-        outputDir,
-        intervalMs: GROUP_CHECK_INTERVAL_MS,
-        component: 'opencode',
-        operationId: opId,
-        onGroup,
-        onMetadata,
-        onCommitMessage,
-        cancellationToken
-      });
+      const runPrompt = async (prompt: string, startTimeMs?: number) => {
+        logger.debug('opencode', 'Prompt built', { promptLength: prompt.length, isLargeDiff: !!isLargeDiff }, opId);
 
-      try {
-        logger.info('opencode', 'Sending prompt to AI', undefined, opId);
-        await sendMessage(server.port, sessionId, prompt, server.diagnostics, opId, cancellationToken);
-        logger.info('opencode', 'AI message completed', undefined, opId);
-      } finally {
-        await poller.stop();
+        const poller = pollOutputDir({
+          outputDir,
+          intervalMs: GROUP_CHECK_INTERVAL_MS,
+          component: 'opencode',
+          operationId: opId,
+          onGroup,
+          onMetadata,
+          onCommitMessage,
+          cancellationToken,
+          startTimeMs
+        });
+
+        try {
+          logger.info('opencode', 'Sending prompt to AI', undefined, opId);
+          await sendMessage(activeServer.port, activeSessionId, prompt, activeServer.diagnostics, opId, cancellationToken);
+          logger.info('opencode', 'AI message completed', undefined, opId);
+        } finally {
+          await poller.stop();
+        }
+      };
+
+      if (!isLargeDiff) {
+        const prompt = buildStreamingPrompt(git, outputDir);
+        await runPrompt(prompt);
+      } else {
+        const fileSummaries = buildFileSummaries(git.parsedDiff, git.filesChanged);
+        const groupingPrompt = buildGroupingPrompt(fileSummaries, git.recentCommits, outputDir);
+        await runPrompt(groupingPrompt);
+
+        const metadata = await readMetadataFile(outputDir, opId);
+        const groups = Array.isArray(metadata?.groups) ? metadata.groups : [];
+        const changesAuthoredByAi = !!metadata?.changesAuthoredByAi;
+
+        for (let i = 0; i < groups.length; i++) {
+          const group = groups[i];
+          if (!group?.id || !group?.title) {
+            throw new Error(`Invalid group metadata at index ${i}`);
+          }
+          const groupFiles = Array.isArray(group?.files) ? group.files : [];
+          const groupDiffFiles = git.parsedDiff.filter(f => groupFiles.includes(f.path));
+          const hunkMap = buildHunkCoordinateIndex(groupDiffFiles);
+
+          const fullDiff = renderGroupDiff(groupDiffFiles, 'full');
+          const isSummary = estimateTokens(fullDiff) > GROUP_DIFF_TOKEN_THRESHOLD;
+          const diffText = isSummary ? renderGroupDiff(groupDiffFiles, 'summary') : fullDiff;
+
+          const groupPrompt = buildGroupPrompt({
+            groupIndex: i,
+            groupId: group.id,
+            title: group.title,
+            changesAuthoredByAi,
+            hunkMap,
+            diffText,
+            diffMode: isSummary ? 'summary' : 'full',
+            outputDir
+          });
+
+          await runPrompt(groupPrompt, Date.now());
+        }
+
+        const commitPrompt = buildCommitMessagePrompt({
+          title: metadata?.title || 'Codebrief',
+          groups: groups.map((group: any) => ({
+            id: group.id,
+            title: group.title,
+            files: Array.isArray(group.files) ? group.files : []
+          })),
+          recentCommits: git.recentCommits,
+          outputDir
+        });
+
+        await runPrompt(commitPrompt, Date.now());
       }
 
       // Check if cancelled before marking success
@@ -576,5 +636,24 @@ export class OpenCodeProvider implements ReviewProvider {
         logger.warn('opencode', 'Failed to clean up temp directory', { outputDir, error: e.message }, opId);
       }
     }
+  }
+}
+
+async function readMetadataFile(outputDir: string, opId?: string): Promise<any> {
+  const metadataPath = path.join(outputDir, 'metadata.json');
+  try {
+    const content = await fs.readFile(metadataPath, 'utf-8');
+    try {
+      return JSON.parse(content);
+    } catch {
+      const repaired = jsonrepair(content);
+      return JSON.parse(repaired);
+    }
+  } catch (error: any) {
+    logger.error('opencode', 'Failed to read metadata.json after grouping pass', {
+      filePath: metadataPath,
+      error: error.message
+    }, opId);
+    throw error;
   }
 }
