@@ -370,6 +370,10 @@ export function stageAllChanges(workspaceRoot: string): GitOpResult {
   try {
     const start = Date.now();
     const changedFiles = getChangedFiles(workspaceRoot);
+    let skippedMissingPaths = 0;
+
+    // Stage tracked modifications/deletions first. This safely handles removed files.
+    execFileSync('git', ['add', '-u', '--', '.'], { cwd: workspaceRoot });
 
     // For each entry, if it's a directory, expand it into individual files
     // while skipping nested git repos. Regular files pass through as-is.
@@ -392,7 +396,9 @@ export function stageAllChanges(workspaceRoot: string): GitOpResult {
           continue;
         }
       } catch {
-        // stat failed — file may be deleted, still needs staging
+        // stat failed — path may be deleted and already handled by `git add -u`
+        skippedMissingPaths += 1;
+        continue;
       }
 
       files.push(clean);
@@ -412,6 +418,7 @@ export function stageAllChanges(workspaceRoot: string): GitOpResult {
 
     logger.info('gitService', 'All changes staged', {
       fileCount: files.length,
+      skippedMissingPaths,
       durationMs: Date.now() - start
     });
     return { ok: true };
