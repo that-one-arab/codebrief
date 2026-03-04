@@ -422,11 +422,13 @@
     const button = document.getElementById('btn-toggle-explanations');
     if (!button) return;
 
-    const buttonText = state.explanationsHidden ? 'Show Explanations' : 'Hide Explanations';
-    button.textContent = buttonText;
+    const explanationsVisible = !state.explanationsHidden;
+    const buttonText = explanationsVisible ? 'Hide explanations' : 'Show explanations';
+
+    button.dataset.state = explanationsVisible ? 'visible' : 'hidden';
     button.title = buttonText;
     button.setAttribute('aria-label', buttonText);
-    button.setAttribute('aria-pressed', String(state.explanationsHidden));
+    button.setAttribute('aria-pressed', String(explanationsVisible));
   }
 
   AIReview.navigation = {

@@ -297,6 +297,7 @@
 
   function renderHeader(title, progressPercent, totalGroups, aiAuthored) {
     const isComplete = progressPercent >= 100;
+    const explanationsVisible = !state.explanationsHidden;
     const aiIndicator = aiAuthored
       ? `<div class="ai-authored-indicator" aria-label="Changes in this review were authored by AI">
           <span class="ai-authored-badge">AI</span>
@@ -306,7 +307,7 @@
     const providerBadge = state.providerName
       ? `<span class="provider-badge">${escapeHtml(state.providerName)}</span>`
       : '';
-    const explanationToggleText = state.explanationsHidden ? 'Show Explanations' : 'Hide Explanations';
+    const explanationToggleText = explanationsVisible ? 'Hide explanations' : 'Show explanations';
     return `
       <header class="experiment-header">
         <div class="header-content">
@@ -316,13 +317,25 @@
           </div>
           <div class="header-actions">
             <button
-              class="header-btn"
+              class="header-btn explanation-toggle"
               id="btn-toggle-explanations"
               type="button"
-              aria-pressed="${state.explanationsHidden}"
+              data-state="${explanationsVisible ? 'visible' : 'hidden'}"
+              aria-pressed="${explanationsVisible}"
+              aria-label="${explanationToggleText}"
               title="${explanationToggleText}"
             >
-              ${explanationToggleText}
+              <span class="toggle-icon" aria-hidden="true">
+                <svg class="icon-visible" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 12C4.5 7.5 8 5 12 5C16 5 19.5 7.5 22 12C19.5 16.5 16 19 12 19C8 19 4.5 16.5 2 12Z" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <svg class="icon-hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 12C4.5 7.5 8 5 12 5C16 5 19.5 7.5 22 12C19.5 16.5 16 19 12 19C8 19 4.5 16.5 2 12Z" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                  <path d="M4 4L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>
             </button>
           </div>
           <div class="experiment-progress">
