@@ -12,7 +12,8 @@ import {
   stageAllChanges,
   unstageAllChanges,
   getGitContext,
-  isGitRepository
+  isGitRepository,
+  initGitRepository
 } from './services';
 import { ReviewPanel } from './views';
 import { registerTreeViews } from './review/treeViews';
@@ -80,7 +81,7 @@ export class ReviewManager {
   }
 
   private async handleGenerateFromUri(workspace: string): Promise<void> {
-    if (!this.canStartReview(workspace)) return;
+    if (!(await this.canStartReview(workspace))) return;
 
     // Check if there's already a generation in progress
     if (generationController.hasActiveGeneration) {
@@ -141,7 +142,7 @@ export class ReviewManager {
       return;
     }
 
-    if (!this.canStartReview(workspaceFolder.uri.fsPath)) return;
+    if (!(await this.canStartReview(workspaceFolder.uri.fsPath))) return;
 
     // Check if there's already a generation in progress
     if (generationController.hasActiveGeneration) {
@@ -184,7 +185,7 @@ export class ReviewManager {
       return;
     }
 
-    if (!this.canStartReview(workspaceFolder.uri.fsPath)) return;
+    if (!(await this.canStartReview(workspaceFolder.uri.fsPath))) return;
 
     // Check if there's already a generation in progress
     if (generationController.hasActiveGeneration) {
@@ -272,11 +273,8 @@ export class ReviewManager {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   }
 
-  private canStartReview(workspaceRoot: string): boolean {
-    if (!isGitRepository(workspaceRoot)) {
-      vscode.window.showErrorMessage('Codebrief: Not a git repository');
-      return false;
-    }
+  private async canStartReview(workspaceRoot: string): Promise<boolean> {
+    if (!(await this.ensureGitRepository(workspaceRoot))) return false;
 
     const git = getGitContext(workspaceRoot);
     if (!git) return false;
@@ -289,6 +287,32 @@ export class ReviewManager {
       vscode.window.showWarningMessage('No changes to review. Make or stage changes, then try again.');
       return false;
     }
+    return true;
+  }
+
+  private async ensureGitRepository(workspaceRoot: string): Promise<boolean> {
+    if (isGitRepository(workspaceRoot)) return true;
+
+    const initAction = 'Initialize Git';
+    const selection = await vscode.window.showWarningMessage(
+      'Codebrief requires a Git repository in this workspace. Initialize one now?',
+      initAction
+    );
+
+    if (selection !== initAction) {
+      return false;
+    }
+
+    const result = initGitRepository(workspaceRoot);
+    if (!result.ok) {
+      vscode.window.showErrorMessage(result.error ?? 'Failed to initialize git repository');
+      return false;
+    }
+
+    vscode.window.showInformationMessage(
+      'Git repository initialized. Make or stage changes, then generate a review.'
+    );
+
     return true;
   }
 

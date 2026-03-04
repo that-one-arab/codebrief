@@ -183,6 +183,28 @@ export function getGitDir(workspaceRoot: string): string | null {
 }
 
 /**
+ * Initialize a new git repository in the workspace.
+ */
+export function initGitRepository(workspaceRoot: string): GitOpResult {
+  try {
+    const start = Date.now();
+    execFileSync('git', ['init'], { cwd: workspaceRoot });
+    logger.info('gitService', 'Git repository initialized', {
+      workspaceRoot,
+      durationMs: Date.now() - start
+    });
+    return { ok: true };
+  } catch (error) {
+    const message = formatGitError('Failed to initialize git repository', error);
+    logger.error('gitService', 'Git init failed', {
+      workspaceRoot,
+      error: message
+    });
+    return { ok: false, error: message };
+  }
+}
+
+/**
  * Stage a file to git index.
  */
 export function stageFile(workspaceRoot: string, filePath: string): GitOpResult {
